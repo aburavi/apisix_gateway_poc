@@ -75,7 +75,7 @@ services:
       - etcd
     restart: always
     volumes:
-      - ./apisix_log:/usr/local/apisix/logs
+      - ./apisix_logs:/usr/local/apisix/logs
       - ./apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml
       - ./apisix_conf/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
     ports:

@@ -1,8 +1,8 @@
 .DS_Store
-apisix_log/.DS_Store
-apisix_log/access.log
-apisix_log/error.log
-apisix_log/nginx.pid
+apisix_logs/.DS_Store
+apisix_logs/access.log
+apisix_logs/error.log
+apisix_logs/nginx.pid
 etcd_data/.DS_Store
 etcd_data/member/snap/db
 etcd_data/member/wal/0000000000000000-0000000000000000.wal
