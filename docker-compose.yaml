@@ -193,14 +193,23 @@ services:
       - apisix
 
   grafana:
-    image: grafana/grafana:7.3.7
-    restart: always
+    image: grafana/grafana:10.4.0
+    container_name: grafana
+    depends_on:
+      - apisix
     ports:
       - "3000:3000"
     volumes:
-      - "./grafana_conf/provisioning:/etc/grafana/provisioning"
-      - "./grafana_conf/dashboards:/var/lib/grafana/dashboards"
-      - "./grafana_conf/config/grafana.ini:/etc/grafana/grafana.ini"
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana_logs:/var/log/grafana
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_SECURITY_HTTP_HEADERS_CONTENT_SECURITY_POLICY=frame-ancestors 'self' http://localhost:9000;
+    restart: unless-stopped
     networks:
       - apisix
 
@@ -210,6 +219,8 @@ networks:
 
 volumes:
   pg_data:
-      driver: local
+    driver: local
   kafka_data:
+    driver: local
+  grafana_data:
     driver: local
