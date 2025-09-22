@@ -1,0 +1,215 @@
+version: "3.8"
+
+services:
+  kafka:
+    image: bitnami/kafka:3.9.0
+    container_name: kafka
+    ports:
+      - "9092:9092"        # External listener for clients
+      - "9093:9093"        # Internal listener (if needed)
+      - "9101:9101"        # JMX metrics (optional)
+    environment:
+      - BITNAMI_DEBUG=true
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=1
+    volumes:
+      - ./kafka_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - apisix
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "9090:8080"
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_JMXPORT=9101
+      - KAFKA_CLUSTERS_0_ALLOWEVERYONE=true
+      - DYNAMIC_CONFIG_ENABLED=true
+    restart: unless-stopped
+    networks:
+      - apisix
+
+  apisix-dashboard:
+    image: apache/apisix-dashboard:latest
+    container_name: apisix-dashboard
+    restart: always
+    depends_on:
+      - apisix
+      - etcd
+    volumes:
+    - ./dashboard_conf/conf.yaml:/usr/local/apisix-dashboard/conf/conf.yaml
+    ports:
+    - "9000:9000"
+    networks:
+      - apisix
+
+  # APISIX Gateway
+  apisix:
+    image: apache/apisix:3.13.0-debian
+    container_name: apisix
+    depends_on:
+      - etcd
+    restart: always
+    volumes:
+      - ./apisix_log:/usr/local/apisix/logs
+      - ./apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml
+      - ./apisix_conf/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
+    ports:
+      - "9180:9180/tcp"
+      - "9080:9080/tcp"
+      - "9091:9091/tcp"
+      - "9443:9443/tcp"
+    environment:
+      - TZ=UTC
+    command: >
+      sh -c "
+        /usr/bin/apisix init &&
+        /usr/bin/apisix init_etcd &&
+        /usr/bin/apisix start &&
+        tail -f /usr/local/apisix/logs/access.log
+      "
+    networks:
+      - apisix
+
+  etcd:
+    image: bitnami/etcd:3.6.0
+    container_name: etcd
+    user: root
+    restart: always
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ENABLE_V2=true
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+    volumes:
+      - ./etcd_conf/etcd.yaml:/opt/bitnami/etcd/conf/etcd.yaml
+      - ./etcd_data:/bitnami/etcd/data
+    healthcheck:
+      test: "etcdctl endpoint health"
+      interval: 5s
+      timeout: 30s
+      retries: 5
+    networks:
+      - apisix
+
+  web1:
+    image: nginx:1.28.0-alpine
+    container_name: web1
+    restart: always
+    volumes:
+      - ./upstream/web1.conf:/etc/nginx/nginx.conf
+    ports:
+      - "9071:80/tcp"
+    environment:
+      - NGINX_PORT=80
+    networks:
+      - apisix
+
+  web2:
+    image: nginx:1.28.0-alpine
+    container_name: web2
+    restart: always
+    volumes:
+      - ./upstream/web2.conf:/etc/nginx/nginx.conf
+    ports:
+      - "9072:80/tcp"
+    environment:
+      - NGINX_PORT=80
+    networks:
+      - apisix
+
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16}
+    container_name: ${POSTGRES_CONTAINER:-postgres}
+    restart: on-failure
+    ports:
+      - "${POSTGRES_OUTER_PORT:-5432}:5432"
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-keycloak}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - apisix
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: password
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_LOG_LEVEL: info
+      KC_METRICS_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: admin
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: start-dev
+    ports:
+      - 8080:8080
+      - 8443:8443
+    depends_on:
+        - postgres
+    networks:
+      - apisix
+
+  grafana:
+    image: grafana/grafana:7.3.7
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - "./grafana_conf/provisioning:/etc/grafana/provisioning"
+      - "./grafana_conf/dashboards:/var/lib/grafana/dashboards"
+      - "./grafana_conf/config/grafana.ini:/etc/grafana/grafana.ini"
+    networks:
+      - apisix
+
+networks:
+  apisix:
+    driver: bridge
+
+volumes:
+  pg_data:
+      driver: local
+  kafka_data:
+    driver: local
