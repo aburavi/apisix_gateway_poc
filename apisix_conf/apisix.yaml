@@ -1,3 +1,56 @@
+upstreams:
+  - nodes:
+      - host: web1
+        port: 80
+        weight: 1
+    timeout:
+      connect: 6
+      send: 6
+      read: 6
+    type: roundrobin
+    scheme: http
+    pass_host: pass
+    name: web1
+    desc: web1 v1
+    keepalive_pool:
+      idle_timeout: 60
+      requests: 1000
+      size: 320
+  - nodes:
+      - host: web2
+        port: 80
+        weight: 1
+    timeout:
+      connect: 6
+      send: 6
+      read: 6
+    type: roundrobin
+    scheme: http
+    pass_host: pass
+    name: web2
+    desc: web2 v1
+    keepalive_pool:
+      idle_timeout: 60
+      requests: 1000
+      size: 320
+  - nodes:
+      - host: generativelanguage.googleapis.com
+        port: 443
+        weight: 1
+    timeout:
+      connect: 6
+      send: 6
+      read: 6
+    type: roundrobin
+    scheme: https
+    pass_host: pass
+    name: gemini-chat
+    desc: Gemini Chat
+    keepalive_pool:
+      idle_timeout: 60
+      requests: 1000
+      size: 320
+
 routes:
   - uri: /web1
     name: web1
@@ -11,12 +64,11 @@ routes:
       - PATCH
       - HEAD
       - OPTIONS
-     - CONNECT
-     - TRACE
-     - PURGE
+      - CONNECT
+      - TRACE
+      - PURGE
     host: localhost
     remote_addr: 0.0.0.0/0
-    upstream_id: '585418475900502727'
     labels:
       API_VERSION: v1
     plugins:
@@ -24,8 +76,8 @@ routes:
         brokers:
           - host: kafka
             port: 9092
-        kafka_topic: "apisix-logs"
-        producer_type: "sync"
+        kafka_topic: apisix-logs
+        producer_type: sync
         include_req_body: true
         include_resp_body: true
       prometheus: {}
@@ -45,7 +97,6 @@ routes:
       - TRACE
       - PURGE
     host: localhost
-    upstream_id: '585424861711565511'
     labels:
       API_VERSION: v1
     plugins:
@@ -53,50 +104,61 @@ routes:
         brokers:
           - host: kafka
             port: 9092
-        kafka_topic: "apisix-logs"
-        producer_type: "sync"
+        kafka_topic: apisix-logs
+        producer_type: sync
         include_req_body: true
         include_resp_body: true
       prometheus: {}
     status: 1
-
-upstreams:
-  - id: '585418475900502727'
-    nodes:
-      - host: web1
-        port: 80
-        weight: 1
-    timeout:
-      connect: 6
-      send: 6
-      read: 6
-    type: roundrobin
-    scheme: http
-    pass_host: pass
-    name: web1
-    desc: web1
-    keepalive_pool:
-      idle_timeout: 60
-      requests: 1000
-      size: 320
-  - id: '585424861711565511'
-    nodes:
-      - host: web2
-        port: 80
-        weight: 1
-    timeout:
-      connect: 6
-      send: 6
-      read: 6
-    type: roundrobin
-    scheme: http
-    pass_host: pass
-    name: web1
-    desc: web1
-    keepalive_pool:
-      idle_timeout: 60
-      requests: 1000
-      size: 320
+  - uri: /v1/gemini/chat
+    name: gemini-chat
+    desc: gemini chat
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+      - HEAD
+      - OPTIONS
+      - CONNECT
+      - TRACE
+      - PURGE
+    host: localhost
+    remote_addr: 0.0.0.0/0
+    plugins:
+      proxy-cache: {}
+      proxy-rewrite:
+        host: generativelanguage.googleapis.com
+        scheme: https
+        uri: /v1beta/models/gemini-pro:generateContent
+        headers:
+          x-google-api-key: YOUR_ACTUAL_GOOGLE_API_KEY
+      request-validation:
+        body_schema:
+          properties:
+            contents:
+              items:
+                properties:
+                  parts:
+                    items:
+                      properties:
+                        text:
+                          type: string
+                      required:
+                        - text
+                      type: object
+                    type: array
+                required:
+                  - parts
+                type: object
+              type: array
+          required:
+            - contents
+          type: object
+    labels:
+      API_VERSION: v1
+    status: 1
 
 consumers:
   # Optional: if you want to test with key-auth later
@@ -104,3 +166,6 @@ consumers:
   #  plugins:
   #    key-auth:
   #      key: auth-one
+
+
+#END

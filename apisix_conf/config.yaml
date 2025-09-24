@@ -161,7 +161,6 @@ plugin_attr:
     keepalive: 30
     max_retry_count: 3
 deployment:
-  config_provider: etcd
   admin:
     admin_key_required: true
     admin_api_version: v3
@@ -177,9 +176,9 @@ deployment:
     allow_admin:
     - 127.0.0.0/24
     - 0.0.0.0/0
-  role_traditional:
+  role: data_plane
+  role_data_plane:
     config_provider: etcd
-  role: traditional
   etcd:
     prefix: /apisix
     timeout: 30
@@ -283,6 +282,11 @@ nginx_config:
 graphql:
   max_size: 1048576
 apisix:
+  config_center: yaml    # use declarative yaml mode
+  allow_admin:           # restrict admin API access
+    - 127.0.0.0/24
+    - 0.0.0.0/0          # for dev only — restrict in prod!
+  enable_admin: true
   enable_control: true
   enable_resolv_search_opt: true
   node_listen: 9080
@@ -316,7 +320,6 @@ apisix:
       name: memory_cache
     cache_ttl: 10s
   resolver_timeout: 5
-  enable_admin: true
   control:
     ip: 0.0.0.0
     port: 9092

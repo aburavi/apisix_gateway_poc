@@ -77,7 +77,7 @@ services:
     volumes:
       - ./apisix_logs:/usr/local/apisix/logs
       - ./apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml
-      - ./apisix_conf/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
+      - ./apisix_conf/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:rw
     ports:
       - "9180:9180/tcp"
       - "9080:9080/tcp"
