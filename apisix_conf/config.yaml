@@ -335,4 +335,7 @@ apisix:
   disable_sync_configuration_during_start: false
   enable_http2: true
   normalize_uri_like_servlet: false
+  environment:
+      - OPENROUTER_API_KEY=your openrouter key
+
 ...

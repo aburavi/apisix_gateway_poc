@@ -20,3 +20,13 @@ http://localhost:9090/
 
 * APISIX Dashboard URL:
 http://localhost:9000/
+
+
+*openrouter test
+curl http://localhost:9080/chat/completions \
+  -H "Authorization: Bearer YOUR_OPENROUTER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "openai/gpt-3.5-turbo",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'

@@ -1,5 +1,6 @@
 upstreams:
-  - nodes:
+  - id: web1-upstream
+    nodes:
       - host: web1
         port: 80
         weight: 1
@@ -16,7 +17,8 @@ upstreams:
       idle_timeout: 60
       requests: 1000
       size: 320
-  - nodes:
+  - id: web2-upstream
+    nodes:
       - host: web2
         port: 80
         weight: 1
@@ -33,7 +35,8 @@ upstreams:
       idle_timeout: 60
       requests: 1000
       size: 320
-  - nodes:
+  - id: gemini-upstream
+    nodes:
       - host: generativelanguage.googleapis.com
         port: 443
         weight: 1
@@ -50,9 +53,28 @@ upstreams:
       idle_timeout: 60
       requests: 1000
       size: 320
-
+  - id: openrouter-upstream
+    nodes:
+      - host: openrouter.ai
+        port: 443
+        eight: 1
+    timeout:
+      connect: 6
+      send: 6
+    read: 10
+    type: roundrobin
+    pass_host: node
+    name: openchat
+    desc: Openai Chat
+    scheme: https
+    keepalive_pool:
+      idle_timeout: 60
+      requests: 1000
+      size: 320
+    
 routes:
-  - uri: /web1
+  - id: web1-route
+    uri: /web1
     name: web1
     desc: test web1
     priority: 1
@@ -81,8 +103,10 @@ routes:
         include_req_body: true
         include_resp_body: true
       prometheus: {}
+    upstream_id: web1-upstream
     status: 1
-  - uri: /web2
+  - id: web2-route 
+    uri: /web2
     name: web2
     desc: test web 2
     methods:
@@ -109,8 +133,10 @@ routes:
         include_req_body: true
         include_resp_body: true
       prometheus: {}
+    upstream_id: web2-upstream
     status: 1
-  - uri: /v1/gemini/chat
+  - id: gemini-route
+    uri: /v1/gemini/chat
     name: gemini-chat
     desc: gemini chat
     methods:
@@ -158,6 +184,31 @@ routes:
           type: object
     labels:
       API_VERSION: v1
+    upstream_id: gemini-upstream
+    status: 1
+  - id: openrouter-route
+    name: openrouter-chat
+    uri: /chat/completions
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+      - HEAD
+      - OPTIONS
+      - CONNECT
+      - TRACE
+      - PURGE
+    labels:
+      API_VERSION: v1
+    plugins:
+      proxy-cache:
+        _meta:
+        disable: false
+      proxy-rewrite:
+        uri: /api/v1/chat/completions
+    upstream_id: openrouter-upstream
     status: 1
 
 consumers:
@@ -166,6 +217,5 @@ consumers:
   #  plugins:
   #    key-auth:
   #      key: auth-one
-
 
 #END
